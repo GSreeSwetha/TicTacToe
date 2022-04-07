@@ -1,0 +1,192 @@
+------------------------creation of tables-----------------------------------
+CREATE TABLE TicTacToe(ID NUMBER GENERATED ALWAYS AS IDENTITY START WITH 1 INCREMENT BY 1 MAXVALUE 3, 
+A VARCHAR(1) CHECK (A IN ('X','O','_')), 
+B VARCHAR(1) CHECK (B IN ('X','O','_')), 
+C VARCHAR(1) CHECK (C IN ('X','O','_'))
+);
+
+--------------------------insertion into tables--------------------------------
+
+INSERT INTO TicTacToe(A,B,C)
+VALUES('_','_','_');
+INSERT INTO TicTacToe(A,B,C)
+VALUES('_','_','_');
+INSERT INTO TicTacToe(A,B,C)
+VALUES('_','_','_');
+
+------ PRINT SAMPLE GRID ----------------------
+SELECT * FROM TicTacToe;
+
+-----------------------------to check victory----------------------
+---VICTORY---
+CREATE OR REPLACE PROCEDURE ttt_CheckVictory AS
+        A1 VARCHAR(1);
+        A2 VARCHAR(1);
+        A3 VARCHAR(1);
+        B1 VARCHAR(1);
+        B2 VARCHAR(1);
+        B3 VARCHAR(1);
+        C1 VARCHAR(1);
+        C2 VARCHAR(1);
+        C3 VARCHAR(1);
+        FLAG BOOLEAN := TRUE;
+BEGIN
+    SELECT A into A1 FROM TicTacToe WHERE ID = 1;
+    SELECT A into A2 FROM TicTacToe WHERE ID = 2;
+    SELECT A into A3 FROM TicTacToe WHERE ID = 3;
+    SELECT B into B1 FROM TicTacToe WHERE ID = 1;
+    SELECT B into B2 FROM TicTacToe WHERE ID = 2;
+    SELECT B into B3 FROM TicTacToe WHERE ID = 3;
+    SELECT C INTO C1 FROM TicTacToe WHERE ID = 1;
+    SELECT C INTO C2 FROM TicTacToe WHERE ID = 2;
+    SELECT C INTO C3 FROM TicTacToe WHERE ID = 3;
+
+     
+    -- Horizontal wins
+        -- Horizontal win on row 1
+        IF ((A1 <> '_') AND (A1 = B1) AND (B1 = C1))
+            THEN    
+              DBMS_OUTPUT.PUT_LINE('PLAYER WITH ' || A1 || ' WON!');
+              FLAG := FALSE;
+        -- Horizontal win on row 2
+        ELSIF ((A2 <> '_') AND (A2 = B2) AND (B2 = C2))
+            THEN     
+              DBMS_OUTPUT.PUT_LINE('PLAYER WITH ' || A2 || ' WON!');
+              FLAG := FALSE;
+        -- Horizontal win on row 3
+        ELSIF((A3 <> '_') AND (A3 = B3) AND (B3 = C3))
+            THEN     
+              DBMS_OUTPUT.PUT_LINE('PLAYER WITH ' || A3 || ' WON!');
+              FLAG := FALSE;
+    -- Vertical wins
+        -- Vertical win on column A
+        ELSIF((A1 <> '_') AND (A1 = A2) AND (A2 = A3))
+           THEN     
+              DBMS_OUTPUT.PUT_LINE('PLAYER WITH ' || A1 || ' WON!');
+              FLAG := FALSE;
+        -- Vertical win on column B
+        ELSIF((B1 <> '_') AND (B1 = B2) AND (B2 = B3))
+           THEN     
+              DBMS_OUTPUT.PUT_LINE('PLAYER WITH ' || B1 || ' WON!');
+              FLAG := FALSE;
+        -- Vertical win on column C
+        ELSIF((C1 <> '_') AND (C1 = C2) AND (C2 = C3))
+            THEN     
+              DBMS_OUTPUT.PUT_LINE('PLAYER WITH ' || C1 || ' WON!');
+              FLAG := FALSE;
+    -- Diagonal wins
+        -- Diagonal win from A1
+        ELSIF((A1 <> '_') AND (A1 = B2) AND (B2 = C3))
+            THEN     
+              DBMS_OUTPUT.PUT_LINE('PLAYER WITH ' || A1 || ' WON!');
+              FLAG := FALSE;
+        -- Diagonal win from A3
+        ELSIF((A3 <> '_') AND (A3 = B2) AND (B2 = C1))
+            THEN     
+              DBMS_OUTPUT.PUT_LINE('PLAYER WITH ' || A3 || ' WON!');
+              FLAG := FALSE;
+    -- Game continues IF any null present
+        ELSIF ((A1 = '_') OR (A2 = '_') OR (A3 = '_') OR (B1 = '_') OR (B2 = '_') OR (B3 = '_') OR (C1 = '_') OR (C2 = '_') OR (C3 = '_'))
+            THEN 
+             DBMS_OUTPUT.PUT_LINE('GAME IS STILL ON!');
+             FLAG := FALSE;
+    END IF;
+   -- TIE CONDITION
+    IF FLAG THEN
+        DBMS_OUTPUT.PUT_LINE('GAME TIED');
+    END IF;
+END;
+
+-------------------------------to check turn and play game -------------------
+
+DROP TABLE ttt_PlayerTurn;
+
+CREATE TABLE ttt_PlayerTurn (turn VARCHAR(1) NOT NULL);
+
+INSERT INTO ttt_PlayerTurn (turn) VALUES ('X');
+
+CREATE OR REPLACE PROCEDURE ttt_PlayerMove(p_move IN VARCHAR, p_column IN VARCHAR, p_row IN INT) AS
+    oldval VARCHAR(1);
+    lastTurn VARCHAR(1);
+    errorFLAG BOOLEAN := TRUE;
+BEGIN
+
+    IF p_column = 'A' 
+        THEN
+           SELECT A INTO oldval FROM TicTacToe WHERE ID = p_row; 
+    ELSIF p_column = 'B' 
+        THEN
+           SELECT B INTO oldval FROM TicTacToe WHERE ID = p_row; 
+    ELSIF p_column = 'C' 
+        THEN
+           SELECT C INTO oldval FROM TicTacToe WHERE ID = p_row;
+    END IF;
+    SELECT turn INTO lastTurn FROM ttt_PlayerTurn;
+
+    -- Check for valid player input
+    IF     p_move NOT IN ('X', 'O')
+        THEN DBMS_OUTPUT.PUT_LINE('Move must be X or O');
+        errorFLAG := FALSE;
+        raise_application_error(-20001,'INVALID MOVE, MOVE MUST BE X or O');
+    END IF;
+    -- Check for valid column
+    IF     p_column NOT IN ('A', 'B', 'C')
+        THEN DBMS_OUTPUT.PUT_LINE('Column must be A, B or C');
+        errorFLAG := FALSE;
+        raise_application_error(-20002,'INVALID MOVE, COLUMN MUST BE A, B or C');
+    END IF;
+    -- Check for valid row
+    IF     p_row NOT IN (1,2,3)
+        THEN DBMS_OUTPUT.PUT_LINE('Row must be 1, 2 or 3');
+        errorFLAG := FALSE;
+        raise_application_error(-20003,'INVALID MOVE, ROW MUST BE 1, 2 or 3');
+    END IF;
+    -- CHECK THAT A 'X' SHOULD NOT OVERWRITE '0' OR VICE VERSA
+    IF (oldval <> '_') THEN 
+            DBMS_OUTPUT.PUT_LINE('INVALID MOVE, TRYING TO ENTER IN A USED CELL');
+            errorFLAG := FALSE;
+            raise_application_error(-20004,'INVALID MOVE, TRYING TO ENTER IN AN ALREADY USED CELL');
+    END IF;
+    -- Check for player turn and update player turn
+    IF p_move = lastTurn
+        THEN 
+            DBMS_OUTPUT.PUT_LINE('PLAYER ' || p_move || ' IS TRYING TO PLAY AGAIN');
+            errorFLAG := FALSE;
+            raise_application_error(-20005,'SAME PLAYER IS TRYING TO PLAY AGAIN');
+    END IF;
+    ---update the tracker table with latest move only if there is no error--
+    IF errorFLAG 
+        THEN
+        IF p_column = 'A' 
+            THEN
+              UPDATE TicTacToe SET A = p_move WHERE ID = p_row; 
+        ELSIF p_column = 'B' 
+            THEN
+              UPDATE TicTacToe SET B = p_move WHERE ID = p_row; 
+        ELSIF p_column = 'C' 
+            THEN
+               UPDATE TicTacToe SET C = p_move WHERE ID = p_row; 
+        END IF;
+            UPDATE ttt_PlayerTurn
+            SET turn = 
+                (CASE
+                    WHEN turn = 'X' THEN 'O'
+                    WHEN turn = 'O' THEN 'X'
+                END);
+    END IF;
+    -- Check if victory is achieved
+    ttt_CheckVictory;
+END;
+--------------------------------play game----------------------------
+
+exec ttt_PlayerMove('O','C',1)
+
+reset board: exec ttt_ResestBoard
+
+------------------------reset board--------------------------
+CREATE OR REPLACE PROCEDURE ttt_ResetBoard AS
+BEGIN
+   UPDATE TicTacToe set A='_',B='_',C='_';
+   UPDATE ttt_PlayerTurn SET turn = 'X';
+END; 
+
